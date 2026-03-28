@@ -14,7 +14,7 @@ from models import (
     PolishStatus
 )
 from caption_agent import CaptionAgent
-from caption_models import CaptionInput, CaptionAgentOutput
+from caption_models import CaptionInput, CaptionAgentOutput, CaptionResponse
 
 # Initialize FastAPI app
 app = FastAPI(title="Polisher Service", version="1.0.0")
@@ -186,6 +186,105 @@ async def generate_caption(caption_input: CaptionInput):
         raise HTTPException(
             status_code=500,
             detail=f"Caption generation failed: {str(e)}"
+        )
+
+
+@app.post("/captions")
+async def create_caption(caption_input: CaptionInput):
+    """
+    POST /captions - Generate and store a caption
+
+    Input:
+    - script: Video script (required)
+    - video_url: URL of the video (required)
+
+    Output:
+    - caption_id: ID for retrieving the caption
+    - caption: Generated caption
+    - video: Video URL
+    """
+    try:
+        agent = get_caption_agent()
+        result = await agent.generate_caption(caption_input)
+
+        if not result.success:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Caption generation failed: {result.error_message}"
+            )
+
+        # Generate unique caption ID
+        import hashlib
+        caption_id = hashlib.md5(
+            f"{caption_input.script}{caption_input.video_url}".encode()
+        ).hexdigest()
+
+        # Store caption data in Redis
+        caption_data = {
+            "caption": result.caption,
+            "video": caption_input.video_url,
+            "script": caption_input.script,
+            "metadata": result.metadata
+        }
+
+        redis_client.setex(
+            f"caption_data:{caption_id}",
+            3600,  # 1 hour TTL
+            json.dumps(caption_data)
+        )
+
+        return {
+            "caption_id": caption_id,
+            "caption": result.caption,
+            "video": caption_input.video_url
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Caption generation failed: {str(e)}"
+        )
+
+
+@app.get("/captions/{caption_id}", response_model=CaptionResponse)
+async def get_caption(caption_id: str):
+    """
+    GET /captions/{caption_id} - Retrieve a generated caption
+
+    Output:
+    - caption: Generated Instagram caption
+    - video: Video URL
+    """
+    try:
+        # Retrieve from Redis
+        caption_data = redis_client.get(f"caption_data:{caption_id}")
+
+        if not caption_data:
+            raise HTTPException(
+                status_code=404,
+                detail="Caption not found or expired"
+            )
+
+        data = json.loads(caption_data)
+
+        return CaptionResponse(
+            caption=data["caption"],
+            video=data["video"]
+        )
+
+    except json.JSONDecodeError:
+        raise HTTPException(
+            status_code=500,
+            detail="Invalid caption data"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve caption: {str(e)}"
         )
 
 
