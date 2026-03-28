@@ -48,7 +48,7 @@ services:
       - BUFFER_PROFILE_IDS=${BUFFER_PROFILE_IDS}
       - TARGET_AUDIENCE=${TARGET_AUDIENCE:-general audience}
       - CAPTION_TONE=${CAPTION_TONE:-engaging}
-      - SERVICE_TIMEOUT=${SERVICE_TIMEOUT:-300}
+      - SERVICE_TIMEOUT=${SERVICE_TIMEOUT:-600}
     ports:
       - "8000:8000"
     depends_on:

@@ -38,7 +38,7 @@ TARGET_AUDIENCE = os.getenv("TARGET_AUDIENCE", "general audience")
 CAPTION_TONE = os.getenv("CAPTION_TONE", "engaging")
 
 # Timeout for each downstream call (seconds)
-SERVICE_TIMEOUT = float(os.getenv("SERVICE_TIMEOUT", "300"))
+SERVICE_TIMEOUT = float(os.getenv("SERVICE_TIMEOUT", "600"))
 
 
 def _profile_ids() -> list[str]:
