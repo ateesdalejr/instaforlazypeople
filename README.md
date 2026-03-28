@@ -1,198 +1,77 @@
-# InstaForLazyPeople - Microservices Monorepo
+# InstaForLazyPeople
 
-A Docker containerized monorepo with microservices architecture for automated content processing.
+**Authenticity without the effort.**
+
+Your emails. Your calendar. Your life — turned into a daily Instagram post while you do absolutely nothing.
+
+InstaForLazyPeople reads your real day, writes a narrative, generates video clips, crafts a caption, and posts it. You get credit for being genuine without having to actually be genuine.
+
+## How It Works
+
+```
+Your Gmail + Calendar
+        |
+   AI Storyboard -----> generates 3-4 scenes from your actual day
+        |
+   Video Generation ---> text-to-video clips, merged into one .mp4
+        |
+   Caption Polish -----> hook + body + hashtags, Instagram-ready
+        |
+   Auto-Post ----------> published to your socials via Buffer
+```
+
+One API call. ~5 minutes. A fully produced daily post that looks like you tried.
+
+## The Pipeline
+
+| Service | What it does |
+|---|---|
+| **get-video** | Pulls emails and calendar events, uses Claude to build a storyboard, generates video clips via GMI Cloud's text-to-video model, merges with ffmpeg |
+| **polisher** | LangGraph agent chain — analyzes themes, writes captions, creates hooks, adds hashtags and CTAs |
+| **buffer** | Posts the final video + caption to your configured social profiles |
+| **orchestrator** | Coordinates everything, handles failures gracefully, serves the dashboard |
+
+## Quick Start
+
+```bash
+# start everything
+docker-compose up --build
+
+# trigger the full pipeline
+curl -X POST http://localhost:8000/run
+```
+
+That's it. Go be lazy.
+
+## Configuration
+
+Set these in your environment or `.env`:
+
+- Google OAuth credentials (Gmail + Calendar access)
+- `ANTHROPIC_API_KEY` — powers the storyboard and caption generation
+- `GMI_API_KEY` — text-to-video generation
+- `BUFFER_ACCESS_TOKEN` — social media posting
+- `BUFFER_PROFILE_ID` — which social profile to post to
 
 ## Architecture
 
-This monorepo orchestrates multiple self-contained services that work together to fetch, polish, and process content:
+Five containerized services on a shared Docker network, communicating via Redis:
 
 ```
-instaforlazypeople/
-├── docker-compose.yml          # Orchestrates all services
-├── fetcher/                    # Content fetching service
-│   ├── Dockerfile
-│   ├── models.py
-│   ├── main.py
-│   └── requirements.txt
-├── polisher/                   # Content polishing service
-│   ├── Dockerfile
-│   ├── models.py
-│   ├── main.py
-│   └── requirements.txt
-└── processor/                  # Content processing service
-    ├── Dockerfile
-    ├── models.py
-    ├── main.py
-    └── requirements.txt
+orchestrator :8000  -->  get-video :8002
+                    -->  polisher  :8001
+                    -->  buffer    :8003
+                    -->  video_gen :8004 (alternative generator)
+                    -->  redis     :6379
 ```
 
-## Services
+Interactive API docs available at each service's `/docs` endpoint when running.
 
-### 1. Fetcher Service (Port 8002)
-Fetches content from various sources (Instagram, URLs, APIs).
+## Why
 
-**Endpoints:**
-- `GET /health` - Health check
-- `POST /fetch` - Fetch content from a source
-- `GET /content/{content_id}` - Get fetched content
+Creating content is work. Curating an online presence is work. But your life is already interesting enough — you just don't have time to package it. This does the packaging for you.
 
-### 2. Polisher Service (Port 8001)
-Enhances and polishes content for better quality.
-
-**Endpoints:**
-- `GET /health` - Health check
-- `POST /polish` - Polish content
-- `GET /result/{content_id}` - Get polish result
-
-### 3. Processor Service (Port 8003)
-Processes content with various transformations (resize, filter, compress, etc.).
-
-**Endpoints:**
-- `GET /health` - Health check
-- `POST /process` - Process content
-- `POST /pipeline` - Execute processing pipeline
-- `GET /result/{content_id}` - Get process result
-
-### 4. Redis (Port 6379)
-Message broker and cache for inter-service communication.
-
-## Getting Started
-
-### Prerequisites
-- Docker
-- Docker Compose
-
-### Running the Services
-
-1. **Start all services:**
-```bash
-docker-compose up --build
-```
-
-2. **Start services in detached mode:**
-```bash
-docker-compose up -d --build
-```
-
-3. **View logs:**
-```bash
-docker-compose logs -f
-```
-
-4. **Stop all services:**
-```bash
-docker-compose down
-```
-
-### Health Checks
-
-Check if services are running:
-```bash
-# Fetcher
-curl http://localhost:8002/health
-
-# Polisher
-curl http://localhost:8001/health
-
-# Processor
-curl http://localhost:8003/health
-```
-
-## Usage Examples
-
-### 1. Fetch Content
-```bash
-curl -X POST "http://localhost:8002/fetch" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "source_type": "instagram",
-    "source_url": "https://instagram.com/example",
-    "config": {
-      "max_items": 5
-    }
-  }'
-```
-
-### 2. Polish Content
-```bash
-curl -X POST "http://localhost:8001/polish" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "content_id": "123",
-    "content_type": "image",
-    "content_url": "https://example.com/image.jpg",
-    "config": {
-      "enhance_quality": true,
-      "apply_filters": true
-    }
-  }'
-```
-
-### 3. Process Content
-```bash
-curl -X POST "http://localhost:8003/process" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "content_id": "123",
-    "process_type": "resize",
-    "input_url": "https://example.com/image.jpg",
-    "parameters": {
-      "width": 1080,
-      "height": 1080
-    }
-  }'
-```
-
-### 4. Process Pipeline
-```bash
-curl -X POST "http://localhost:8003/pipeline" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "input_url": "https://example.com/image.jpg",
-    "stages": ["resize", "filter", "compress"]
-  }'
-```
-
-## Service Communication
-
-Services communicate via Redis pub/sub channels:
-- `fetched_content` - Fetcher publishes to this channel
-- `polished_content` - Polisher publishes to this channel
-- `processed_content` - Processor publishes to this channel
-
-## Development
-
-### Adding a New Service
-
-1. Create a new directory for your service
-2. Add `Dockerfile`, `models.py`, `main.py`, and `requirements.txt`
-3. Update `docker-compose.yml` to include the new service
-4. Follow the existing service patterns for consistency
-
-### Environment Variables
-
-Each service uses these environment variables:
-- `SERVICE_NAME` - Name of the service
-- `REDIS_HOST` - Redis hostname (default: redis)
-- `REDIS_PORT` - Redis port (default: 6379)
-
-## API Documentation
-
-Once services are running, access interactive API docs:
-- Fetcher: http://localhost:8002/docs
-- Polisher: http://localhost:8001/docs
-- Processor: http://localhost:8003/docs
-
-## Network
-
-All services run on the `microservices-network` bridge network, allowing them to communicate with each other.
-
-## Volumes
-
-Services use volume mounts for hot-reloading during development:
-- `./fetcher:/app`
-- `./polisher:/app`
-- `./processor:/app`
+The irony is the point: AI-generated "authenticity" that's based on your actual life. It's more real than most content out there anyway.
 
 ## License
 
