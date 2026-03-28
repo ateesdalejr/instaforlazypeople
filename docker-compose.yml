@@ -41,6 +41,8 @@ services:
       context: ./orchestrator
       dockerfile: Dockerfile
     container_name: orchestrator-service
+    volumes:
+      - ./orchestrator:/app
     environment:
       - GET_VIDEO_URL=http://get-video:8000
       - POLISHER_URL=http://polisher:8000
