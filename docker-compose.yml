@@ -68,9 +68,25 @@ services:
       - BUFFER_API_KEY=${BUFFER_API_KEY}
       - BUFFER_CHANNEL_ID=${BUFFER_CHANNEL_ID}
     ports:
-      - "8004:8000"
+      - "8003:8000"
     volumes:
       - ./buffer:/app
+    networks:
+      - microservices-network
+    restart: unless-stopped
+
+  video_gen:
+    build:
+      context: ./video_gen
+      dockerfile: Dockerfile
+    container_name: video-gen-service
+    environment:
+      - SERVICE_NAME=video_gen
+      - GMI_API_KEY=${GMI_API_KEY}
+    ports:
+      - "8004:8000"
+    volumes:
+      - ./video_gen:/app
     networks:
       - microservices-network
     restart: unless-stopped
