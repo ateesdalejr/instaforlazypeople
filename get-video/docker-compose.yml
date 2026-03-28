@@ -1,0 +1,10 @@
+services:
+  gmail-video-service:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./google_tokens.json:/app/google_tokens.json:ro
+      - ./output:/app/output
