@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  polisher:
+    build:
+      context: ./polisher
+      dockerfile: Dockerfile
+    container_name: polisher-service
+    environment:
+      - SERVICE_NAME=polisher
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./polisher:/app
+    depends_on:
+      - redis
+    networks:
+      - microservices-network
+    restart: unless-stopped
+
+  fetcher:
+    build:
+      context: ./fetcher
+      dockerfile: Dockerfile
+    container_name: fetcher-service
+    environment:
+      - SERVICE_NAME=fetcher
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    ports:
+      - "8002:8000"
+    volumes:
+      - ./fetcher:/app
+    depends_on:
+      - redis
+    networks:
+      - microservices-network
+    restart: unless-stopped
+
+  processor:
+    build:
+      context: ./processor
+      dockerfile: Dockerfile
+    container_name: processor-service
+    environment:
+      - SERVICE_NAME=processor
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    ports:
+      - "8003:8000"
+    volumes:
+      - ./processor:/app
+    depends_on:
+      - redis
+    networks:
+      - microservices-network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis-cache
+    ports:
+      - "6379:6379"
+    networks:
+      - microservices-network
+    restart: unless-stopped
+
+networks:
+  microservices-network:
+    driver: bridge
