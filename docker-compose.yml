@@ -58,6 +58,28 @@ services:
       - microservices-network
     restart: unless-stopped
 
+  buffer:
+    build:
+      context: ./buffer
+      dockerfile: Dockerfile
+    container_name: buffer-service
+    environment:
+      - SERVICE_NAME=buffer
+      - BUFFER_REDIS_HOST=redis
+      - BUFFER_REDIS_PORT=6379
+      - BUFFER_API_KEY=${BUFFER_API_KEY}
+      - BUFFER_ACCESS_TOKEN=${BUFFER_ACCESS_TOKEN}
+      - BUFFER_CHANNEL_ID=${BUFFER_CHANNEL_ID}
+    ports:
+      - "8004:8000"
+    volumes:
+      - ./buffer:/app
+    depends_on:
+      - redis
+    networks:
+      - microservices-network
+    restart: unless-stopped
+
   redis:
     image: redis:7-alpine
     container_name: redis-cache
