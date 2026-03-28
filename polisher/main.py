@@ -13,6 +13,8 @@ from models import (
     ContentType,
     PolishStatus
 )
+from caption_agent import CaptionAgent
+from caption_models import CaptionInput, CaptionAgentOutput
 
 # Initialize FastAPI app
 app = FastAPI(title="Polisher Service", version="1.0.0")
@@ -23,6 +25,17 @@ redis_client = redis.Redis(
     port=int(os.getenv("REDIS_PORT", 6379)),
     decode_responses=True
 )
+
+# Initialize Caption Agent (lazy loaded)
+_caption_agent = None
+
+
+def get_caption_agent() -> CaptionAgent:
+    """Get or create caption agent instance"""
+    global _caption_agent
+    if _caption_agent is None:
+        _caption_agent = CaptionAgent()
+    return _caption_agent
 
 
 class PolishService:
@@ -141,6 +154,39 @@ async def get_polish_result(content_id: str):
 
     except json.JSONDecodeError:
         raise HTTPException(status_code=500, detail="Invalid result data")
+
+
+@app.post("/caption/generate", response_model=CaptionAgentOutput)
+async def generate_caption(caption_input: CaptionInput):
+    """
+    Generate Instagram caption from script using LangGraph agent
+
+    Takes a video script and produces an optimized Instagram caption with:
+    - Attention-grabbing hook
+    - Engaging body text
+    - Strategic emojis and line breaks
+    - Call-to-action
+    - Relevant hashtags
+    """
+    try:
+        agent = get_caption_agent()
+        result = await agent.generate_caption(caption_input)
+
+        # Store in Redis for retrieval
+        if result.success:
+            redis_client.setex(
+                f"caption:{caption_input.script[:50]}",
+                3600,  # 1 hour TTL
+                json.dumps(result.model_dump())
+            )
+
+        return result
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Caption generation failed: {str(e)}"
+        )
 
 
 @app.on_event("startup")
