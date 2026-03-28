@@ -24,6 +24,29 @@ def submit_video(prompt: str) -> str:
     return response.json()["request_id"]
 
 
+def _extract_url(obj) -> str | None:
+    """Pull a URL string out of whatever shape GMI returns."""
+    if isinstance(obj, str):
+        return obj
+    if isinstance(obj, list):
+        for item in obj:
+            found = _extract_url(item)
+            if found:
+                return found
+        return None
+    if isinstance(obj, dict):
+        # Check common URL keys first
+        for key in ("url", "video_url", "link"):
+            if key in obj and isinstance(obj[key], str):
+                return obj[key]
+        # Recurse into values
+        for val in obj.values():
+            found = _extract_url(val)
+            if found:
+                return found
+    return None
+
+
 def poll_video(request_id: str) -> str:
     settings = get_settings()
     headers = {"Authorization": f"Bearer {settings.GMI_API_KEY}"}
@@ -40,11 +63,7 @@ def poll_video(request_id: str) -> str:
 
         if status == "success":
             outcome = data.get("outcome", {})
-            # GMI returns outcome as either a list [{'url': '...'}] or a dict
-            if isinstance(outcome, list):
-                url = outcome[0].get("url") if outcome else None
-            else:
-                url = outcome.get("video_url") or outcome.get("url") or next(iter(outcome.values()), None)
+            url = _extract_url(outcome)
             if not url:
                 raise RuntimeError(f"No video URL in outcome: {outcome}")
             log.info(f"  Video URL: {url}")

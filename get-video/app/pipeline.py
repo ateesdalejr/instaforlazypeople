@@ -58,7 +58,7 @@ def run_pipeline(days: int, max_results: int) -> PipelineResult:
     if successful_urls:
         log.info(f"Step 4: Merging {len(successful_urls)} clips with ffmpeg...")
         merged_path = merge_clips(successful_urls, settings.OUTPUT_DIR)
-        log.info(f"  Merged video: {merged_path}")
+        log.info(f"  Merged video (local): {merged_path}")
     else:
         log.info("Step 4: No successful clips to merge")
 

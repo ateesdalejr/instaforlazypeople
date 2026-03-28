@@ -8,6 +8,7 @@ class Media(BaseModel):
     title: str | None = Field(None, description="Title for the attachment")
     picture: str | None = Field(None, description="URL of a preview image for a link")
     photo: str | None = Field(None, description="URL of a photo to post directly")
+    video: str | None = Field(None, description="URL of a video to post directly")
     thumbnail: str | None = Field(None, description="Thumbnail image URL")
 
 

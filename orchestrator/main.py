@@ -128,9 +128,14 @@ async def run_pipeline(days: int = 1, max_results: int = 20):
                 else video_data.storyboard.summary
             )
 
+            # Use the first successful clip's public URL (already hosted on GCS by GMI)
             media = None
-            if video_data.merged_video_path:
-                media = Media(photo=video_data.merged_video_path)
+            public_video_url = next(
+                (c.video_url for c in video_data.clips if c.video_url),
+                None,
+            )
+            if public_video_url:
+                media = Media(video=public_video_url)
 
             create_update = CreateUpdate(
                 profile_ids=profile_ids,

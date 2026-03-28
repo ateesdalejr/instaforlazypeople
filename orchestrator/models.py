@@ -64,6 +64,7 @@ class Media(BaseModel):
     title: Optional[str] = None
     picture: Optional[str] = None
     photo: Optional[str] = None
+    video: Optional[str] = None
     thumbnail: Optional[str] = None
 
 

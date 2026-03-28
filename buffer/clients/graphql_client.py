@@ -63,7 +63,12 @@ class GraphQLClient:
             input_vars["mode"] = "customScheduled"
 
         # Attach media if provided
-        if request.media and request.media.photo:
+        if request.media and request.media.video:
+            input_vars["assets"] = {
+                "videos": [{"url": request.media.video}],
+            }
+            input_vars["metadata"]["instagram"]["type"] = "reel"
+        elif request.media and request.media.photo:
             input_vars["assets"] = {
                 "images": [{"url": request.media.photo}],
             }
