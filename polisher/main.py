@@ -2,10 +2,14 @@ import os
 import json
 import redis
 import asyncio
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from typing import Dict, Any
 import uvicorn
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 from models import (
     PolishRequest,
     PolishResult,
@@ -14,10 +18,34 @@ from models import (
     PolishStatus
 )
 from caption_agent import CaptionAgent
-from caption_models import CaptionInput, CaptionAgentOutput, CaptionResponse
+from caption_models import CaptionInput, CaptionAgentOutput
 
 # Initialize FastAPI app
-app = FastAPI(title="Polisher Service", version="1.0.0")
+app = FastAPI(
+    title="Polisher Service - Instagram Caption Generator",
+    version="1.0.0",
+    description="""
+    🎨 **Polisher Service** - AI-powered Instagram caption generation using LangGraph
+
+    ## Features
+    - 🤖 Multi-node AI workflow for high-quality captions
+    - 📝 Script analysis and theme extraction
+    - 🎯 Attention-grabbing hooks
+    - 💬 Strategic emojis and CTAs
+    - #️⃣ Relevant hashtag generation
+
+    ## Endpoints
+    - `POST /captions` - Generate Instagram caption from video script
+    - `GET /health` - Service health check
+
+    ## Powered By
+    - LangGraph for multi-agent workflows
+    - OpenAI GPT-4 for content generation
+    - Redis for caching
+    """,
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
 
 # Redis connection (optional — service works without it)
 _redis_host = os.getenv("REDIS_HOST", "localhost")
@@ -193,104 +221,67 @@ async def generate_caption(caption_input: CaptionInput):
 
 
 @app.post("/captions")
-async def create_caption(caption_input: CaptionInput):
+async def create_caption(request: Request):
     """
-    POST /captions - Generate and store a caption
+    Generate Instagram caption from video script
 
-    Input:
-    - script: Video script (required)
-    - video_url: URL of the video (required)
+    **Request Body:**
+    - `script` (required): Video script text to generate caption from
+    - `video_url` (required): URL of the video
+    - `target_audience` (optional): Target audience description
+    - `tone` (optional): Desired tone (default: "engaging")
 
-    Output:
-    - caption_id: ID for retrieving the caption
-    - caption: Generated caption
-    - video: Video URL
+    **Response:**
+    - `caption`: Generated Instagram-ready caption with hook, body, emojis, CTA, and hashtags
+    - `video`: Video URL from request
+    - `metadata`: Additional generation details (hook, hashtags, character counts, etc.)
+
+    **Example:**
+    ```json
+    {
+        "script": "Today I'm sharing my top 3 productivity hacks...",
+        "video_url": "https://example.com/video.mp4"
+    }
+    ```
     """
     try:
+        # Manually parse request body
+        body = await request.json()
+        print(f"DEBUG: Raw request body: {body}")
+
+        # Create CaptionInput from parsed JSON
+        caption_input = CaptionInput(**body)
+        print(f"DEBUG: Created CaptionInput: {caption_input}")
+
         agent = get_caption_agent()
+        print(f"DEBUG: Agent created, generating caption...")
+
         result = await agent.generate_caption(caption_input)
+        print(f"DEBUG: Caption generation result: success={result.success}")
 
         if not result.success:
+            print(f"DEBUG: Generation failed: {result.error_message}")
             raise HTTPException(
                 status_code=500,
                 detail=f"Caption generation failed: {result.error_message}"
             )
 
-        # Generate unique caption ID
-        import hashlib
-        caption_id = hashlib.md5(
-            f"{caption_input.script}{caption_input.video_url}".encode()
-        ).hexdigest()
-
-        # Store caption data in Redis
-        caption_data = {
+        print(f"DEBUG: Returning response with caption length: {len(result.caption)}")
+        return {
             "caption": result.caption,
             "video": caption_input.video_url,
-            "script": caption_input.script,
             "metadata": result.metadata
         }
 
-        if redis_client:
-            redis_client.setex(
-                f"caption_data:{caption_id}",
-                3600,  # 1 hour TTL
-                json.dumps(caption_data)
-            )
-
-        return {
-            "caption_id": caption_id,
-            "caption": result.caption,
-            "video": caption_input.video_url
-        }
-
     except HTTPException:
         raise
     except Exception as e:
+        import traceback
+        print(f"DEBUG: Exception caught: {str(e)}")
+        print(f"DEBUG: Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=500,
             detail=f"Caption generation failed: {str(e)}"
-        )
-
-
-@app.get("/captions/{caption_id}", response_model=CaptionResponse)
-async def get_caption(caption_id: str):
-    """
-    GET /captions/{caption_id} - Retrieve a generated caption
-
-    Output:
-    - caption: Generated Instagram caption
-    - video: Video URL
-    """
-    try:
-        # Retrieve from Redis
-        if not redis_client:
-            raise HTTPException(status_code=503, detail="Redis unavailable")
-        caption_data = redis_client.get(f"caption_data:{caption_id}")
-
-        if not caption_data:
-            raise HTTPException(
-                status_code=404,
-                detail="Caption not found or expired"
-            )
-
-        data = json.loads(caption_data)
-
-        return CaptionResponse(
-            caption=data["caption"],
-            video=data["video"]
-        )
-
-    except json.JSONDecodeError:
-        raise HTTPException(
-            status_code=500,
-            detail="Invalid caption data"
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to retrieve caption: {str(e)}"
         )
 
 

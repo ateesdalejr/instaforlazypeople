@@ -27,7 +27,9 @@ class CaptionAgent:
         self.llm = ChatOpenAI(
             model="gpt-4o-mini",
             temperature=0.7,
-            api_key=self.api_key
+            api_key=self.api_key,
+            timeout=30,
+            max_retries=2
         )
 
         # Build the graph
@@ -56,7 +58,7 @@ class CaptionAgent:
         """
         Node 1: Analyze the script to extract key themes, tone, and message
         """
-        script = state.input_data.script
+        script = state["script"]
 
         system_prompt = """You are an expert content analyst specializing in social media.
 Analyze the given video script and extract:
@@ -73,7 +75,9 @@ Return your analysis in JSON format."""
             HumanMessage(content=f"Script to analyze:\n\n{script}")
         ]
 
+        print(f"[analyze_script] Calling LLM...")
         response = self.llm.invoke(messages)
+        print(f"[analyze_script] LLM responded")
         content = response.content
 
         # Parse JSON response
@@ -85,6 +89,9 @@ Return your analysis in JSON format."""
                 json_str = content.split("```")[1].split("```")[0].strip()
             else:
                 json_str = content
+
+            # Clean up common JSON issues
+            json_str = json_str.replace("\\n", " ").replace("\\t", " ")
 
             analysis_data = json.loads(json_str)
 
@@ -108,15 +115,15 @@ Return your analysis in JSON format."""
                     target_keywords=["instagram", "content"],
                     emotional_appeal="engaging"
                 ),
-                "processing_errors": state.processing_errors + [f"JSON parse error: {str(e)}"]
+                "processing_errors": state.get("processing_errors", []) + [f"JSON parse error: {str(e)}"]
             }
 
     def generate_caption(self, state: CaptionAgentState) -> Dict[str, Any]:
         """
         Node 2: Generate initial caption draft based on script analysis
         """
-        analysis = state.script_analysis
-        script = state.input_data.script
+        analysis = state["script_analysis"]
+        script = state["script"]
 
         system_prompt = """You are an expert Instagram caption writer.
 Based on the script analysis, write an engaging Instagram caption that:
@@ -173,15 +180,15 @@ Generate a caption body and suggest hashtags. Return in JSON format with keys: c
                     suggested_hashtags=["#content", "#instagram"],
                     char_count=len(script[:150])
                 ),
-                "processing_errors": state.processing_errors + [f"Caption generation JSON error: {str(e)}"]
+                "processing_errors": state.get("processing_errors", []) + [f"Caption generation JSON error: {str(e)}"]
             }
 
     def create_hook(self, state: CaptionAgentState) -> Dict[str, Any]:
         """
         Node 3: Create an attention-grabbing hook/first line
         """
-        analysis = state.script_analysis
-        draft = state.caption_draft
+        analysis = state["script_analysis"]
+        draft = state["caption_draft"]
 
         system_prompt = """You are an expert at creating scroll-stopping Instagram hooks.
 Create a powerful first line (hook) that:
@@ -230,16 +237,16 @@ Create an engaging hook."""
                     hook_line="Check this out!",
                     hook_type="statement"
                 ),
-                "processing_errors": state.processing_errors + [f"Hook generation JSON error: {str(e)}"]
+                "processing_errors": state.get("processing_errors", []) + [f"Hook generation JSON error: {str(e)}"]
             }
 
     def refine_caption(self, state: CaptionAgentState) -> Dict[str, Any]:
         """
         Node 4: Refine and assemble the final caption with all elements
         """
-        hook = state.hook_output
-        draft = state.caption_draft
-        analysis = state.script_analysis
+        hook = state["hook_output"]
+        draft = state["caption_draft"]
+        analysis = state["script_analysis"]
 
         system_prompt = """You are an expert Instagram caption optimizer.
 Create the FINAL Instagram caption by:
@@ -303,7 +310,7 @@ Create the final polished Instagram caption."""
                     total_length=len(final_caption),
                     line_count=final_caption.count("\n") + 1
                 ),
-                "processing_errors": state.processing_errors + [f"Refinement JSON error: {str(e)}"]
+                "processing_errors": state.get("processing_errors", []) + [f"Refinement JSON error: {str(e)}"]
             }
 
     async def generate_caption(self, caption_input: CaptionInput) -> CaptionAgentOutput:
@@ -311,10 +318,14 @@ Create the final polished Instagram caption."""
         Main entry point to generate a caption
         """
         try:
-            # Initialize state
-            initial_state = CaptionAgentState(
-                input_data=caption_input
-            )
+            # Initialize state as a dictionary with primitive values
+            initial_state: CaptionAgentState = {
+                "script": caption_input.script,
+                "video_url": caption_input.video_url,
+                "target_audience": caption_input.target_audience,
+                "tone": caption_input.tone,
+                "processing_errors": []
+            }
 
             # Run the graph
             final_state = await self.graph.ainvoke(initial_state)

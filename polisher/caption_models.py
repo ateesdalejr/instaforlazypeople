@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, TypedDict
 from datetime import datetime
 
 
@@ -44,23 +44,22 @@ class RefinedCaption(BaseModel):
     line_count: int = Field(..., description="Number of lines in caption")
 
 
-class CaptionAgentState(BaseModel):
+class CaptionAgentState(TypedDict, total=False):
     """State object that flows through the LangGraph"""
-    # Input
-    input_data: CaptionInput
+    # Input data (stored as primitives, not Pydantic models)
+    script: str
+    video_url: str
+    target_audience: Optional[str]
+    tone: str
 
     # Node outputs
-    script_analysis: Optional[ScriptAnalysis] = None
-    caption_draft: Optional[CaptionDraft] = None
-    hook_output: Optional[HookOutput] = None
-    refined_caption: Optional[RefinedCaption] = None
+    script_analysis: Optional[ScriptAnalysis]
+    caption_draft: Optional[CaptionDraft]
+    hook_output: Optional[HookOutput]
+    refined_caption: Optional[RefinedCaption]
 
     # Metadata
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    processing_errors: List[str] = Field(default_factory=list)
-
-    class Config:
-        arbitrary_types_allowed = True
+    processing_errors: List[str]
 
 
 class CaptionAgentOutput(BaseModel):
