@@ -32,7 +32,7 @@ client_config = {
 }
 
 flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
-creds = flow.run_local_server(port=0)
+creds = flow.run_local_server(port=8080)
 
 tokens = {
     "access_token": creds.token,

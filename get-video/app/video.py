@@ -40,11 +40,16 @@ def poll_video(request_id: str) -> str:
 
         if status == "success":
             outcome = data.get("outcome", {})
-            # GMI returns outcome as either a list [{'url': '...'}] or a dict
+            # GMI returns outcome as a dict whose value may be a list of video objects
+            # e.g. {"videos": [{"id": "0", "url": "https://..."}]}
             if isinstance(outcome, list):
-                url = outcome[0].get("url") if outcome else None
+                raw = outcome
             else:
-                url = outcome.get("video_url") or outcome.get("url") or next(iter(outcome.values()), None)
+                raw = outcome.get("video_url") or outcome.get("url") or next(iter(outcome.values()), None)
+            if isinstance(raw, list):
+                url = raw[0].get("url") if raw else None
+            else:
+                url = raw
             if not url:
                 raise RuntimeError(f"No video URL in outcome: {outcome}")
             log.info(f"  Video URL: {url}")

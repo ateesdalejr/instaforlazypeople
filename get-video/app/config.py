@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     GMI_BASE_URL: str = "https://console.gmicloud.ai/api/v1/ie/requestqueue/apikey"
     GMI_MODEL: str = "wan2.6-t2v"
     GMI_POLL_INTERVAL: int = 5
-    GMI_POLL_TIMEOUT: int = 300
+    GMI_POLL_TIMEOUT: int = 600
 
     # Anthropic
     ANTHROPIC_API_KEY: str
