@@ -8,10 +8,6 @@ class Settings(BaseSettings):
     graphql_url: str = "https://api.buffer.com"
     rate_limit_rpm: int = 60
 
-    # Redis (matching monorepo convention)
-    redis_host: str = "localhost"
-    redis_port: int = 6379
-
     model_config = {"env_prefix": "BUFFER_", "env_file": ".env"}
 
 
