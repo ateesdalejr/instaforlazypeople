@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta, timezone
 
 from googleapiclient.discovery import build
@@ -5,10 +6,15 @@ from googleapiclient.discovery import build
 from .google_auth import get_credentials
 from .models import CalendarEvent
 
+log = logging.getLogger(__name__)
+
 
 def get_events(days_back: int, max_results: int = 50) -> list[CalendarEvent]:
+    log.info("  calendar: getting credentials...")
     creds = get_credentials()
-    service = build("calendar", "v3", credentials=creds)
+    log.info("  calendar: building service...")
+    service = build("calendar", "v3", credentials=creds, cache_discovery=False)
+    log.info("  calendar: service ready, fetching events...")
 
     now = datetime.now(tz=timezone.utc)
 

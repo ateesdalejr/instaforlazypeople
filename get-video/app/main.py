@@ -1,3 +1,4 @@
+import traceback
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 
@@ -20,6 +21,7 @@ def data(days: int = 1, maxResults: int = 20):
     try:
         result = run_pipeline(days, maxResults)
     except Exception as e:
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
     if result.merged_video_path:

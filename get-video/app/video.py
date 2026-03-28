@@ -1,9 +1,12 @@
 import time
+import logging
 
 import requests
 
 from .config import get_settings
 from .models import Scene, VideoClip
+
+log = logging.getLogger(__name__)
 
 
 def submit_video(prompt: str) -> str:
@@ -37,9 +40,14 @@ def poll_video(request_id: str) -> str:
 
         if status == "success":
             outcome = data.get("outcome", {})
-            url = outcome.get("video_url") or outcome.get("url") or next(iter(outcome.values()), None)
+            # GMI returns outcome as either a list [{'url': '...'}] or a dict
+            if isinstance(outcome, list):
+                url = outcome[0].get("url") if outcome else None
+            else:
+                url = outcome.get("video_url") or outcome.get("url") or next(iter(outcome.values()), None)
             if not url:
                 raise RuntimeError(f"No video URL in outcome: {outcome}")
+            log.info(f"  Video URL: {url}")
             return url
         elif status in ("failed", "cancelled"):
             raise RuntimeError(f"Video generation {status} for request {request_id}")
@@ -51,7 +59,9 @@ def poll_video(request_id: str) -> str:
 
 def generate_scene_video(scene: Scene) -> VideoClip:
     try:
+        log.info(f"  Scene {scene.scene_number}: submitting to GMI Cloud...")
         request_id = submit_video(scene.description)
+        log.info(f"  Scene {scene.scene_number}: request_id={request_id}, polling...")
         video_url = poll_video(request_id)
         return VideoClip(
             scene_number=scene.scene_number,

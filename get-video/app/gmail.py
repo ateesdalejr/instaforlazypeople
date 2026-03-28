@@ -1,12 +1,14 @@
 import base64
+import logging
 import re
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
 from googleapiclient.discovery import build
 
 from .google_auth import get_credentials
 from .models import Email
+
+log = logging.getLogger(__name__)
 
 
 def _get_header(headers: list, name: str) -> str:
@@ -47,8 +49,11 @@ def _fetch_message(service, msg_id: str) -> dict:
 
 
 def get_emails(days_back: int, max_results: int) -> list[Email]:
+    log.info("  gmail: getting credentials...")
     creds = get_credentials()
-    service = build("gmail", "v1", credentials=creds)
+    log.info("  gmail: building service...")
+    service = build("gmail", "v1", credentials=creds, cache_discovery=False)
+    log.info("  gmail: service ready, fetching messages...")
 
     q = ""
     if days_back:
@@ -65,12 +70,8 @@ def get_emails(days_back: int, max_results: int) -> list[Email]:
     if not messages:
         return []
 
-    # Fetch all full messages in parallel
-    with ThreadPoolExecutor(max_workers=10) as pool:
-        full_messages = list(pool.map(
-            lambda m: _fetch_message(service, m["id"]),
-            messages
-        ))
+    full_messages = [_fetch_message(service, m["id"]) for m in messages]
+    log.info(f"  gmail: fetched {len(full_messages)} full messages")
 
     emails = []
     for data in full_messages:

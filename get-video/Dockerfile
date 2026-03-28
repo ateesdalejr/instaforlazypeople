@@ -11,6 +11,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app/ ./app/
 COPY auth_google.py .
+COPY check_urls.py .
 
 RUN mkdir -p /app/output
 

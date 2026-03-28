@@ -1,6 +1,6 @@
 import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime
 
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
@@ -29,10 +29,10 @@ def get_credentials() -> Credentials:
     # Node.js googleapis stores expiry_date as epoch milliseconds
     expiry = None
     if "expiry_date" in tokens:
-        expiry = datetime.fromtimestamp(tokens["expiry_date"] / 1000, tz=timezone.utc)
+        expiry = datetime.utcfromtimestamp(tokens["expiry_date"] / 1000)
     elif "expiry" in tokens:
-        # Python format: ISO string
-        expiry = datetime.fromisoformat(tokens["expiry"])
+        # Python format: ISO string — strip tz info so google-auth can compare against utcnow()
+        expiry = datetime.fromisoformat(tokens["expiry"]).replace(tzinfo=None)
 
     creds = Credentials(
         token=tokens.get("access_token"),
