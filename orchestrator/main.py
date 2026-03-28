@@ -14,7 +14,10 @@ from models import (
     CreateUpdate,
     Media,
     PipelineResponse,
+    Scene,
     StepResult,
+    Storyboard,
+    VideoClip,
     VideoDataResponse,
 )
 
@@ -156,3 +159,158 @@ async def run_pipeline(days: int = 1, max_results: int = 20):
         caption=caption_output,
         buffer_response=buffer_resp,
     )
+
+
+# ---------------------------------------------------------------------------
+# Mock helpers
+# ---------------------------------------------------------------------------
+
+
+def _mock_video() -> VideoDataResponse:
+    """Return a realistic-looking VideoDataResponse with fake data."""
+    return VideoDataResponse(
+        storyboard=Storyboard(
+            title="Day in the Life of a Developer",
+            summary=(
+                "Follow a software developer from the first sip of morning coffee "
+                "through a marathon debugging session to the triumphant moment the "
+                "CI pipeline finally goes green."
+            ),
+            scenes=[
+                Scene(
+                    scene_number=1,
+                    description=(
+                        "Developer opens laptop at a cozy desk, coffee in hand. "
+                        "The IDE boots up, dozens of terminal tabs spring to life."
+                    ),
+                    duration_seconds=5.0,
+                ),
+                Scene(
+                    scene_number=2,
+                    description=(
+                        "Close-up of furious typing as a tricky bug is hunted down. "
+                        "Stack traces scroll past; sticky notes pile up on the monitor."
+                    ),
+                    duration_seconds=6.0,
+                ),
+                Scene(
+                    scene_number=3,
+                    description=(
+                        "The CI build turns green. Developer leans back with a "
+                        "satisfied grin, pushes to main, and closes the laptop."
+                    ),
+                    duration_seconds=4.0,
+                ),
+            ],
+        ),
+        clips=[
+            VideoClip(
+                scene_number=1,
+                request_id="mock-req-001",
+                status="completed",
+                video_url="https://example.com/clips/morning-coffee.mp4",
+            ),
+            VideoClip(
+                scene_number=2,
+                request_id="mock-req-002",
+                status="completed",
+                video_url="https://example.com/clips/debugging-session.mp4",
+            ),
+            VideoClip(
+                scene_number=3,
+                request_id="mock-req-003",
+                status="completed",
+                video_url="https://example.com/clips/ci-green.mp4",
+            ),
+        ],
+        merged_video_path="https://example.com/merged/day-in-the-life-final.mp4",
+    )
+
+
+def _mock_caption() -> CaptionAgentOutput:
+    """Return a realistic-looking CaptionAgentOutput with fake data."""
+    return CaptionAgentOutput(
+        caption=(
+            "Ever mass-close 47 browser tabs because your bug was a typo? "
+            "Same. \U0001f602\u2615\n\n"
+            "Here's what a real day of coding actually looks like -- "
+            "from that first coffee hit to the sweet, sweet green CI build. "
+            "No glamour shots, just vibes.\n\n"
+            "\U0001f449 Save this for the next time someone asks what you do all day.\n\n"
+            "#devlife #coding #softwareengineer #dayinthelife #programming "
+            "#buildinpublic #techlife #developer #webdev #100daysofcode"
+        ),
+        metadata={
+            "hook": "Ever mass-close 47 browser tabs because your bug was a typo?",
+            "cta": "Save this for the next time someone asks what you do all day.",
+            "hashtag_count": 10,
+            "tone": "engaging",
+        },
+        success=True,
+    )
+
+
+def _mock_buffer_response() -> dict:
+    """Return a realistic-looking buffer response dict."""
+    return {
+        "success": True,
+        "id": "mock-update-123",
+        "message": "Update created successfully (mock).",
+        "profile_id": "mock-profile-456",
+        "scheduled_at": "2026-03-28T18:00:00Z",
+    }
+
+
+# ---------------------------------------------------------------------------
+# Mock endpoints
+# ---------------------------------------------------------------------------
+
+
+@app.get("/run/mock")
+async def run_pipeline_mock():
+    """Return a complete PipelineResponse with fake test data (no real calls)."""
+    return PipelineResponse(
+        success=True,
+        steps=[
+            StepResult(step="get-video", success=True),
+            StepResult(step="polisher", success=True),
+            StepResult(step="buffer", success=True),
+        ],
+        video=_mock_video(),
+        caption=_mock_caption(),
+        buffer_response=_mock_buffer_response(),
+    )
+
+
+@app.get("/mock/video")
+async def mock_video():
+    """Return a VideoDataResponse with fake test data."""
+    return _mock_video()
+
+
+@app.get("/mock/caption")
+async def mock_caption():
+    """Return a CaptionAgentOutput with fake test data."""
+    return _mock_caption()
+
+
+@app.get("/mock/buffer")
+async def mock_buffer():
+    """Return a mock buffer CreateUpdateResponse."""
+    return _mock_buffer_response()
+
+
+# ---------------------------------------------------------------------------
+# Static files & UI
+# ---------------------------------------------------------------------------
+
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+
+@app.get("/")
+async def root():
+    return FileResponse("static/index.html")
+
+
+app.mount("/static", StaticFiles(directory="static"), name="static")

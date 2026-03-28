@@ -19,12 +19,14 @@ from caption_models import CaptionInput, CaptionAgentOutput, CaptionResponse
 # Initialize FastAPI app
 app = FastAPI(title="Polisher Service", version="1.0.0")
 
-# Redis connection
-redis_client = redis.Redis(
-    host=os.getenv("REDIS_HOST", "localhost"),
-    port=int(os.getenv("REDIS_PORT", 6379)),
-    decode_responses=True
-)
+# Redis connection (optional — service works without it)
+_redis_host = os.getenv("REDIS_HOST", "localhost")
+_redis_port = int(os.getenv("REDIS_PORT", 6379))
+try:
+    redis_client = redis.Redis(host=_redis_host, port=_redis_port, decode_responses=True)
+    redis_client.ping()
+except Exception:
+    redis_client = None
 
 # Initialize Caption Agent (lazy loaded)
 _caption_agent = None
@@ -73,15 +75,14 @@ class PolishService:
                 }
             )
 
-            # Store result in Redis
-            redis_client.setex(
-                f"polish_result:{request.content_id}",
-                3600,  # 1 hour TTL
-                json.dumps(result.to_dict())
-            )
-
-            # Publish to processor service
-            redis_client.publish("polished_content", json.dumps(result.to_dict()))
+            # Store result in Redis (if available)
+            if redis_client:
+                redis_client.setex(
+                    f"polish_result:{request.content_id}",
+                    3600,  # 1 hour TTL
+                    json.dumps(result.to_dict())
+                )
+                redis_client.publish("polished_content", json.dumps(result.to_dict()))
 
             return result
 
@@ -96,14 +97,14 @@ class PolishService:
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
-    try:
-        redis_client.ping()
-        return {"status": "healthy", "service": "polisher", "redis": "connected"}
-    except Exception as e:
-        return JSONResponse(
-            status_code=503,
-            content={"status": "unhealthy", "error": str(e)}
-        )
+    redis_ok = False
+    if redis_client:
+        try:
+            redis_client.ping()
+            redis_ok = True
+        except Exception:
+            pass
+    return {"status": "healthy", "service": "polisher", "redis": "connected" if redis_ok else "unavailable"}
 
 
 @app.post("/polish")
@@ -146,6 +147,8 @@ async def get_polish_result(content_id: str):
     Get polishing result by content ID
     """
     try:
+        if not redis_client:
+            raise HTTPException(status_code=503, detail="Redis unavailable")
         result = redis_client.get(f"polish_result:{content_id}")
         if not result:
             raise HTTPException(status_code=404, detail="Result not found")
@@ -172,8 +175,8 @@ async def generate_caption(caption_input: CaptionInput):
         agent = get_caption_agent()
         result = await agent.generate_caption(caption_input)
 
-        # Store in Redis for retrieval
-        if result.success:
+        # Store in Redis for retrieval (if available)
+        if result.success and redis_client:
             redis_client.setex(
                 f"caption:{caption_input.script[:50]}",
                 3600,  # 1 hour TTL
@@ -227,11 +230,12 @@ async def create_caption(caption_input: CaptionInput):
             "metadata": result.metadata
         }
 
-        redis_client.setex(
-            f"caption_data:{caption_id}",
-            3600,  # 1 hour TTL
-            json.dumps(caption_data)
-        )
+        if redis_client:
+            redis_client.setex(
+                f"caption_data:{caption_id}",
+                3600,  # 1 hour TTL
+                json.dumps(caption_data)
+            )
 
         return {
             "caption_id": caption_id,
@@ -259,6 +263,8 @@ async def get_caption(caption_id: str):
     """
     try:
         # Retrieve from Redis
+        if not redis_client:
+            raise HTTPException(status_code=503, detail="Redis unavailable")
         caption_data = redis_client.get(f"caption_data:{caption_id}")
 
         if not caption_data:
@@ -291,12 +297,11 @@ async def get_caption(caption_id: str):
 @app.on_event("startup")
 async def startup_event():
     """Run on service startup"""
-    print("🎨 Polisher service starting up...")
-    try:
-        redis_client.ping()
-        print("✅ Connected to Redis")
-    except Exception as e:
-        print(f"❌ Failed to connect to Redis: {e}")
+    print("Polisher service starting up...")
+    if redis_client:
+        print("Connected to Redis")
+    else:
+        print("Redis unavailable — running without caching")
 
 
 @app.on_event("shutdown")

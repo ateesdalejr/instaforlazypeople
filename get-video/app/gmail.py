@@ -42,8 +42,10 @@ def _extract_body(payload: dict) -> str:
     return body or "(no body)"
 
 
-def _fetch_message(service, msg_id: str) -> dict:
-    return service.users().messages().get(
+def _fetch_message(msg_id: str) -> dict:
+    creds = get_credentials()
+    svc = build("gmail", "v1", credentials=creds)
+    return svc.users().messages().get(
         userId="me", id=msg_id, format="full"
     ).execute()
 
@@ -70,7 +72,7 @@ def get_emails(days_back: int, max_results: int) -> list[Email]:
     if not messages:
         return []
 
-    full_messages = [_fetch_message(service, m["id"]) for m in messages]
+    full_messages = [_fetch_message(m["id"]) for m in messages]
     log.info(f"  gmail: fetched {len(full_messages)} full messages")
 
     emails = []
