@@ -51,6 +51,9 @@ docker-compose.override.yml
 htmlcov/
 .tox/
 
+# Tokens
+google_tokens.json
+
 # Misc
 *.pid
 *.seed
