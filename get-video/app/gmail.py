@@ -1,7 +1,7 @@
 import base64
 import re
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from googleapiclient.discovery import build
 
@@ -52,7 +52,7 @@ def get_emails(days_back: int, max_results: int) -> list[Email]:
 
     q = ""
     if days_back:
-        since = (datetime.now() - timedelta(days=days_back)).strftime("%Y/%m/%d")
+        since = (datetime.now(tz=timezone.utc) - timedelta(days=days_back)).strftime("%Y/%m/%d")
         q = f"after:{since}"
 
     list_res = service.users().messages().list(
