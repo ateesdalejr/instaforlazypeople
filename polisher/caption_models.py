@@ -6,7 +6,7 @@ from datetime import datetime
 class CaptionInput(BaseModel):
     """Input model for caption generation"""
     script: str = Field(..., description="The video script to generate caption from")
-    video_url: Optional[str] = Field(None, description="URL of the uploaded video")
+    video_url: str = Field(..., description="URL of the uploaded video")
     target_audience: Optional[str] = Field(None, description="Target audience for the content")
     tone: Optional[str] = Field("engaging", description="Desired tone (e.g., casual, professional, inspiring)")
 
@@ -70,3 +70,9 @@ class CaptionAgentOutput(BaseModel):
     script_analysis: Optional[ScriptAnalysis] = None
     success: bool = Field(True, description="Whether generation was successful")
     error_message: Optional[str] = None
+
+
+class CaptionResponse(BaseModel):
+    """Response model for GET /captions endpoint"""
+    caption: str = Field(..., description="Generated Instagram caption")
+    video: str = Field(..., description="URL of the video")
