@@ -8,52 +8,53 @@ services:
     container_name: polisher-service
     environment:
       - SERVICE_NAME=polisher
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
     ports:
       - "8001:8000"
     volumes:
       - ./polisher:/app
-    depends_on:
-      - redis
     networks:
       - microservices-network
     restart: unless-stopped
 
-  fetcher:
+  get-video:
     build:
-      context: ./fetcher
+      context: ./get-video
       dockerfile: Dockerfile
-    container_name: fetcher-service
+    container_name: get-video-service
     environment:
-      - SERVICE_NAME=fetcher
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI}
+      - GMI_API_KEY=${GMI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OUTPUT_DIR=${OUTPUT_DIR}
     ports:
       - "8002:8000"
     volumes:
-      - ./fetcher:/app
-    depends_on:
-      - redis
+      - ./get-video:/app
     networks:
       - microservices-network
     restart: unless-stopped
 
-  processor:
+  orchestrator:
     build:
-      context: ./processor
+      context: ./orchestrator
       dockerfile: Dockerfile
-    container_name: processor-service
+    container_name: orchestrator-service
     environment:
-      - SERVICE_NAME=processor
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - GET_VIDEO_URL=http://get-video:8000
+      - POLISHER_URL=http://polisher:8000
+      - BUFFER_URL=http://buffer:8000
+      - BUFFER_PROFILE_IDS=${BUFFER_PROFILE_IDS}
+      - TARGET_AUDIENCE=${TARGET_AUDIENCE:-general audience}
+      - CAPTION_TONE=${CAPTION_TONE:-engaging}
+      - SERVICE_TIMEOUT=${SERVICE_TIMEOUT:-300}
     ports:
-      - "8003:8000"
-    volumes:
-      - ./processor:/app
+      - "8000:8000"
     depends_on:
-      - redis
+      - get-video
+      - polisher
+      - buffer
     networks:
       - microservices-network
     restart: unless-stopped
@@ -70,15 +71,6 @@ services:
       - "8004:8000"
     volumes:
       - ./buffer:/app
-    networks:
-      - microservices-network
-    restart: unless-stopped
-
-  redis:
-    image: redis:7-alpine
-    container_name: redis-cache
-    ports:
-      - "6379:6379"
     networks:
       - microservices-network
     restart: unless-stopped
