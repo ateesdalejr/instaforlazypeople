@@ -41,7 +41,7 @@ class CaptionAgent:
 
         # Add nodes
         workflow.add_node("analyze_script", self.analyze_script)
-        workflow.add_node("generate_caption", self.generate_caption)
+        workflow.add_node("generate_caption", self.draft_caption)
         workflow.add_node("create_hook", self.create_hook)
         workflow.add_node("refine_caption", self.refine_caption)
 
@@ -118,7 +118,7 @@ Return your analysis in JSON format."""
                 "processing_errors": state.get("processing_errors", []) + [f"JSON parse error: {str(e)}"]
             }
 
-    def generate_caption(self, state: CaptionAgentState) -> Dict[str, Any]:
+    def draft_caption(self, state: CaptionAgentState) -> Dict[str, Any]:
         """
         Node 2: Generate initial caption draft based on script analysis
         """
@@ -318,12 +318,9 @@ Create the final polished Instagram caption."""
         Main entry point to generate a caption
         """
         try:
-            # Initialize state as a dictionary with primitive values
             initial_state: CaptionAgentState = {
                 "script": caption_input.script,
                 "video_url": caption_input.video_url,
-                "target_audience": caption_input.target_audience,
-                "tone": caption_input.tone,
                 "processing_errors": []
             }
 

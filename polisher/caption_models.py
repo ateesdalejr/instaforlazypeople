@@ -7,8 +7,6 @@ class CaptionInput(BaseModel):
     """Input model for caption generation"""
     script: str = Field(..., description="The video script to generate caption from")
     video_url: str = Field(..., description="URL of the uploaded video")
-    target_audience: Optional[str] = Field(None, description="Target audience for the content")
-    tone: Optional[str] = Field("engaging", description="Desired tone (e.g., casual, professional, inspiring)")
 
 
 class ScriptAnalysis(BaseModel):
@@ -46,11 +44,8 @@ class RefinedCaption(BaseModel):
 
 class CaptionAgentState(TypedDict, total=False):
     """State object that flows through the LangGraph"""
-    # Input data (stored as primitives, not Pydantic models)
     script: str
     video_url: str
-    target_audience: Optional[str]
-    tone: str
 
     # Node outputs
     script_analysis: Optional[ScriptAnalysis]
